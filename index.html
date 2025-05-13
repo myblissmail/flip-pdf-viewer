@@ -26,7 +26,6 @@
       position: relative;
       gap: 10px;
       padding: 10px;
-      touch-action: pan-y;
     }
     canvas {
       width: 48%;
@@ -105,29 +104,6 @@
       }
     }
   </style>
-  <script>
-    let startX = 0;
-    let endX = 0;
-    const swipeThreshold = 50; // px
-
-    document.addEventListener('touchstart', function(e) {
-      startX = e.touches[0].clientX;
-    }, false);
-
-    document.addEventListener('touchend', function(e) {
-      endX = e.changedTouches[0].clientX;
-      const deltaX = endX - startX;
-      if (Math.abs(deltaX) > swipeThreshold) {
-        if (deltaX < 0) {
-          // 向左滑 - 下一頁
-          if (typeof goToNextPage === 'function') goToNextPage();
-        } else {
-          // 向右滑 - 上一頁
-          if (typeof goToPreviousPage === 'function') goToPreviousPage();
-        }
-      }
-    }, false);
-  </script>
 </head>
 <body>
   <!-- 以下保留原內容不變 -->
