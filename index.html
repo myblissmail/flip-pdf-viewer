@@ -22,7 +22,6 @@
       position: relative;
       gap: 10px;
       padding: 10px;
-      flex-wrap: wrap;
     }
     canvas {
       width: 48%;
@@ -134,14 +133,8 @@
     const leftCtx = leftCanvas.getContext("2d");
     const rightCtx = rightCanvas.getContext("2d");
 
-    fileInput.addEventListener("change", handleFile);
-
-    function handleFile(e) {
+    fileInput.addEventListener("change", (e) => {
       const file = e.target.files[0];
-      loadPDFFile(file);
-    }
-
-    function loadPDFFile(file) {
       if (!file || file.type !== "application/pdf" || !file.name.endsWith(".pdf")) {
         alert(lang === 'zh' ? "請選擇正確的 PDF 檔案。" : "Please select a valid PDF file.");
         return;
@@ -164,20 +157,151 @@
           });
       };
       reader.readAsArrayBuffer(file);
+    });
+
+    function playFlipSound() {
+      if (soundEnabled) {
+        flipSound.currentTime = 0;
+        flipSound.play();
+      }
     }
 
-    document.addEventListener("dragover", e => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "copy";
-    });
-    document.addEventListener("drop", e => {
-      e.preventDefault();
-      if (!e.dataTransfer.files || e.dataTransfer.files.length === 0) return;
-      const file = e.dataTransfer.files[0];
-      loadPDFFile(file);
-    });
+    function applyEffect(canvas) {
+      if (!effectEnabled) return;
+      canvas.style.transform = "rotateY(15deg)";
+      setTimeout(() => {
+        canvas.style.transform = "rotateY(0deg)";
+      }, 150);
+    }
 
-    // 其餘函式維持原樣...
+    function renderPages() {
+      if (!pdfDoc) return;
+      const leftPageNum = currentPage;
+      const rightPageNum = currentPage + 1;
+
+      if (leftPageNum <= totalPages) {
+        pdfDoc.getPage(leftPageNum).then(page => {
+          const viewport = page.getViewport({ scale: 1.5 });
+          leftCanvas.height = viewport.height;
+          leftCanvas.width = viewport.width;
+          page.render({ canvasContext: leftCtx, viewport: viewport });
+          applyEffect(leftCanvas);
+        });
+      }
+
+      if (rightPageNum <= totalPages) {
+        pdfDoc.getPage(rightPageNum).then(page => {
+          const viewport = page.getViewport({ scale: 1.5 });
+          rightCanvas.height = viewport.height;
+          rightCanvas.width = viewport.width;
+          page.render({ canvasContext: rightCtx, viewport: viewport });
+          applyEffect(rightCanvas);
+        });
+      } else {
+        rightCtx.clearRect(0, 0, rightCanvas.width, rightCanvas.height);
+      }
+
+      document.getElementById("pageIndicator").innerText = lang === 'zh'
+        ? `第 ${currentPage} - ${Math.min(currentPage + 1, totalPages)} 頁 / 共 ${totalPages} 頁`
+        : `Page ${currentPage}-${Math.min(currentPage + 1, totalPages)} / ${totalPages}`;
+
+      localStorage.setItem("pdfCurrentPage", currentPage);
+    }
+
+    function changePage(offset) {
+      if (!pdfDoc) return;
+      const newPage = currentPage + offset;
+      if (newPage >= 1 && newPage <= totalPages) {
+        currentPage = newPage;
+        renderPages();
+        playFlipSound();
+      }
+    }
+
+    function goToPage(page) {
+      if (!pdfDoc) return;
+      if (page >= 1 && page <= totalPages) {
+        currentPage = page;
+        renderPages();
+        playFlipSound();
+      }
+    }
+
+    function goToEnd() {
+      if (!pdfDoc) return;
+      currentPage = totalPages % 2 === 0 ? totalPages - 1 : totalPages;
+      renderPages();
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    }
+
+    function toggleAutoFlip() {
+      autoFlip = !autoFlip;
+      document.getElementById("btn-auto").innerText = autoFlip
+        ? (lang === 'zh' ? "停止翻頁" : "Stop Auto Flip")
+        : (lang === 'zh' ? "自動翻頁" : "Auto Flip");
+      if (autoFlip) {
+        const interval = parseInt(document.getElementById("autoFlipSec").value) * 1000;
+        autoFlipInterval = setInterval(() => {
+          if (currentPage + 2 <= totalPages) {
+            changePage(2);
+          } else {
+            toggleAutoFlip();
+          }
+        }, interval);
+      } else {
+        clearInterval(autoFlipInterval);
+      }
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      document.getElementById("btn-sound").innerText = soundEnabled
+        ? (lang === 'zh' ? "音效開" : "Sound On")
+        : (lang === 'zh' ? "音效關" : "Sound Off");
+    }
+
+    function toggleEffect() {
+      effectEnabled = !effectEnabled;
+      document.getElementById("btn-effect").innerText = effectEnabled
+        ? (lang === 'zh' ? "特效開" : "Effect On")
+        : (lang === 'zh' ? "特效關" : "Effect Off");
+    }
+
+    function switchLang(language) {
+      lang = language;
+      document.getElementById("btn-first").innerText = lang === 'zh' ? "首頁" : "First";
+      document.getElementById("btn-prev").innerText = lang === 'zh' ? "上一頁" : "Prev";
+      document.getElementById("btn-next").innerText = lang === 'zh' ? "下一頁" : "Next";
+      document.getElementById("btn-last").innerText = lang === 'zh' ? "末頁" : "Last";
+      document.getElementById("btn-full").innerText = lang === 'zh' ? "全螢幕" : "Fullscreen";
+      document.getElementById("btn-auto").innerText = autoFlip ? (lang === 'zh' ? "停止翻頁" : "Stop Auto Flip") : (lang === 'zh' ? "自動翻頁" : "Auto Flip");
+      document.getElementById("btn-sound").innerText = soundEnabled ? (lang === 'zh' ? "音效開" : "Sound On") : (lang === 'zh' ? "音效關" : "Sound Off");
+      document.getElementById("btn-effect").innerText = effectEnabled ? (lang === 'zh' ? "特效開" : "Effect On") : (lang === 'zh' ? "特效關" : "Effect Off");
+      document.getElementById("btn-bookmark").innerText = lang === 'zh' ? "加入書籤" : "Add Bookmark";
+      document.querySelectorAll("#bookmark-list button").forEach(btn => {
+        const match = btn.innerText.match(/\d+/);
+        if (match) {
+          const page = match[0];
+          btn.innerText = lang === 'zh' ? `第 ${page} 頁` : `Page ${page}`;
+        }
+      });
+    }
+
+    function addBookmark() {
+      if (!pdfDoc) return;
+      const list = document.getElementById("bookmark-list");
+      const btn = document.createElement("button");
+      btn.innerText = lang === 'zh' ? `第 ${currentPage} 頁` : `Page ${currentPage}`;
+      btn.onclick = () => goToPage(currentPage);
+      list.appendChild(btn);
+    }
   </script>
 </body>
 </html>
