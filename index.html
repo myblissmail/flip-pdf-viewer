@@ -114,6 +114,7 @@
     <div id="bookmark-list"></div>
     <span id="pageIndicator"></span>
   </div>
+  <audio id="flip-audio" preload="auto" src="flip.mp3"></audio>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
@@ -122,7 +123,7 @@
     let lang = 'zh';
     let autoFlip = false, autoFlipInterval = null;
     let soundEnabled = true, effectEnabled = true;
-    const flipSound = new Audio("https://pixabay.com/zh/sound-effects/turn-a-page-336933/");
+    const flipSound = document.getElementById("flip-audio");
 
     const fileInput = document.getElementById("fileInput");
     const leftCanvas = document.getElementById("left-page");
