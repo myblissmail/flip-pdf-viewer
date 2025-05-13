@@ -116,6 +116,8 @@
   </div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
   <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
     let pdfDoc = null, currentPage = 1, totalPages = 0;
     let lang = 'zh';
     let autoFlip = false, autoFlipInterval = null;
@@ -137,24 +139,21 @@
         return;
       }
       const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          const typedArray = new Uint8Array(reader.result);
-          pdfjsLib.getDocument({data: typedArray}).promise.then(pdf => {
+      reader.onload = function () {
+        const typedArray = new Uint8Array(reader.result);
+        pdfjsLib.getDocument({ data: typedArray }).promise
+          .then(pdf => {
             pdfDoc = pdf;
             totalPages = pdf.numPages;
             const savedPage = parseInt(localStorage.getItem("pdfCurrentPage"));
             currentPage = (!isNaN(savedPage) && savedPage >= 1 && savedPage <= totalPages) ? savedPage : 1;
             controls.style.display = "flex";
             renderPages();
-          }).catch(error => {
+          })
+          .catch(error => {
             console.error("PDF 加載失敗：", error);
             alert(lang === 'zh' ? "PDF 無法正確載入。" : "Failed to load the PDF.");
           });
-        } catch (err) {
-          console.error("檔案轉換錯誤：", err);
-          alert(lang === 'zh' ? "無效的檔案內容。" : "Invalid file content.");
-        }
       };
       reader.readAsArrayBuffer(file);
     });
