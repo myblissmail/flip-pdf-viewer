@@ -105,13 +105,6 @@
     <button onclick="toggleAutoFlip()" id="btn-auto">自動翻頁</button>
     <input type="number" id="autoFlipSec" min="1" value="5" title="翻頁秒數" />
     <button onclick="toggleSound()" id="btn-sound">音效開</button>
-    <button onclick="toggleEffect()" id="btn-effect">特效開</button>
-    <select onchange="switchLang(this.value)">
-      <option value="zh">繁體中文</option>
-      <option value="en">English</option>
-    </select>
-    <button onclick="addBookmark()" id="btn-bookmark">加入書籤</button>
-    <div id="bookmark-list"></div>
     <span id="pageIndicator"></span>
   </div>
   <audio id="flip-audio" preload="auto" src="flip.mp3"></audio>
@@ -267,13 +260,6 @@
         : (lang === 'zh' ? "音效關" : "Sound Off");
     }
 
-    function toggleEffect() {
-      effectEnabled = !effectEnabled;
-      document.getElementById("btn-effect").innerText = effectEnabled
-        ? (lang === 'zh' ? "特效開" : "Effect On")
-        : (lang === 'zh' ? "特效關" : "Effect Off");
-    }
-
     function switchLang(language) {
       lang = language;
       document.getElementById("btn-first").innerText = lang === 'zh' ? "首頁" : "First";
@@ -283,25 +269,8 @@
       document.getElementById("btn-full").innerText = lang === 'zh' ? "全螢幕" : "Fullscreen";
       document.getElementById("btn-auto").innerText = autoFlip ? (lang === 'zh' ? "停止翻頁" : "Stop Auto Flip") : (lang === 'zh' ? "自動翻頁" : "Auto Flip");
       document.getElementById("btn-sound").innerText = soundEnabled ? (lang === 'zh' ? "音效開" : "Sound On") : (lang === 'zh' ? "音效關" : "Sound Off");
-      document.getElementById("btn-effect").innerText = effectEnabled ? (lang === 'zh' ? "特效開" : "Effect On") : (lang === 'zh' ? "特效關" : "Effect Off");
-      document.getElementById("btn-bookmark").innerText = lang === 'zh' ? "加入書籤" : "Add Bookmark";
-      document.querySelectorAll("#bookmark-list button").forEach(btn => {
-        const match = btn.innerText.match(/\d+/);
-        if (match) {
-          const page = match[0];
-          btn.innerText = lang === 'zh' ? `第 ${page} 頁` : `Page ${page}`;
         }
       });
-    }
-
-    function addBookmark() {
-      if (!pdfDoc) return;
-      const list = document.getElementById("bookmark-list");
-      const btn = document.createElement("button");
-      btn.innerText = lang === 'zh' ? `第 ${currentPage} 頁` : `Page ${currentPage}`;
-      btn.onclick = () => goToPage(currentPage);
-      list.appendChild(btn);
-    }
-  </script>
+    </script>
 </body>
 </html>
