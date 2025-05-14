@@ -22,7 +22,7 @@
       position: relative;
       gap: 10px;
       padding: 10px;
-      flex-wrap: wrap;
+      touch-action: pan-y;
     }
     canvas {
       width: 48%;
@@ -60,14 +60,15 @@
     button:hover {
       background-color: #f0f0f0;
     }
-    #bookmark-list {
+    #bookmark-list, #pdf-outline {
       max-height: 100px;
       overflow-y: auto;
       display: flex;
       flex-wrap: wrap;
       gap: 5px;
+      padding: 5px;
     }
-    #bookmark-list button {
+    #bookmark-list button, #pdf-outline button {
       white-space: nowrap;
     }
     #pageIndicator {
@@ -75,15 +76,6 @@
       margin-top: 5px;
       text-align: center;
       width: 100%;
-    }
-    @media (max-width: 1024px) {
-      #viewer {
-        flex-direction: column;
-        gap: 5px;
-      }
-      canvas {
-        width: 95% !important;
-      }
     }
     @media (max-width: 768px) {
       #controls {
@@ -94,141 +86,220 @@
         width: 90%;
         max-width: 300px;
       }
+      canvas {
+        width: 95% !important;
+      }
     }
   </style>
 </head>
 <body>
-  <div id="controls">
-    <input type="file" id="upload" accept="application/pdf" />
-    <button onclick="goToPage(1)">首頁</button>
-    <button onclick="prevPage()">上一頁</button>
-    <button onclick="nextPage()">下一頁</button>
-    <button onclick="goToPage(totalPages)">末頁</button>
-    <button onclick="toggleFullscreen()">全螢幕</button>
-    <label>自動翻頁
-      <input type="number" id="autoFlipSec" value="3" min="1" /> 秒
-    </label>
-    <button onclick="toggleAutoFlip()">啟動/停止</button>
-    <button onclick="toggleSound()">切換音效</button>
-    <button onclick="toggleEffect()">切換特效</button>
-    <div id="bookmark-list"></div>
-  </div>
   <div id="viewer">
-    <canvas id="leftPage"></canvas>
-    <canvas id="rightPage"></canvas>
+    <canvas id="left-page"></canvas>
+    <canvas id="right-page"></canvas>
   </div>
-  <audio id="flipSound" src="flip.mp3" preload="auto"></audio>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+  <div id="controls">
+    <input type="file" id="fileInput" accept="application/pdf" />
+    <button onclick="goToPage(1)" id="btn-first">首頁</button>
+    <button onclick="changePage(-2)" id="btn-prev">上一頁</button>
+    <button onclick="changePage(2)" id="btn-next">下一頁</button>
+    <button onclick="goToEnd()" id="btn-last">末頁</button>
+    <button onclick="toggleFullscreen()" id="btn-full">全螢幕</button>
+    <button onclick="toggleAutoFlip()" id="btn-auto">自動翻頁</button>
+    <input type="number" id="autoFlipSec" min="1" value="5" title="翻頁秒數" />
+    <button onclick="toggleSound()" id="btn-sound">音效開</button>
+    <button onclick="toggleEffect()" id="btn-effect">特效開</button>
+    <select onchange="switchLang(this.value)">
+      <option value="zh">繁體中文</option>
+      <option value="en">English</option>
+    </select>
+    <button onclick="addBookmark()" id="btn-bookmark">加入書籤</button>
+    <div id="bookmark-list"></div>
+    <div id="pdf-outline"></div>
+    <span id="pageIndicator"></span>
+  </div>
+  <audio id="flip-audio" preload="auto" src="flip.mp3"></audio>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
   <script>
-    let pdfDoc = null;
-    let currentPage = 1;
-    let totalPages = 0;
-    let autoFlipInterval = null;
-    let soundOn = true;
-    let effectOn = true;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
-    const leftCanvas = document.getElementById('leftPage');
-    const rightCanvas = document.getElementById('rightPage');
-    const flipSound = document.getElementById('flipSound');
+    let pdfDoc = null, currentPage = 1, totalPages = 0;
+    let lang = 'zh';
+    let autoFlip = false, autoFlipInterval = null;
+    let soundEnabled = true, effectEnabled = true;
+    const flipSound = document.getElementById("flip-audio");
 
-    document.getElementById('upload').addEventListener('change', function (e) {
+    const fileInput = document.getElementById("fileInput");
+    const leftCanvas = document.getElementById("left-page");
+    const rightCanvas = document.getElementById("right-page");
+    const leftCtx = leftCanvas.getContext("2d");
+    const rightCtx = rightCanvas.getContext("2d");
+
+    fileInput.addEventListener("change", (e) => {
       const file = e.target.files[0];
-      if (file && file.type === 'application/pdf') {
-        const fileReader = new FileReader();
-        fileReader.onload = function () {
-          const typedarray = new Uint8Array(this.result);
-          pdfjsLib.getDocument(typedarray).promise.then(function (pdf) {
+      if (!file || file.type !== "application/pdf") {
+        alert(lang === 'zh' ? "請選擇正確的 PDF 檔案。" : "Please select a valid PDF file.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = function () {
+        const typedArray = new Uint8Array(reader.result);
+        pdfjsLib.getDocument({ data: typedArray }).promise
+          .then(pdf => {
             pdfDoc = pdf;
             totalPages = pdf.numPages;
             currentPage = 1;
             renderPages();
+            loadOutline();
           });
-        };
-        fileReader.readAsArrayBuffer(file);
-      }
+      };
+      reader.readAsArrayBuffer(file);
     });
-
-    function renderPage(pageNumber, canvas) {
-      pdfDoc.getPage(pageNumber).then(function (page) {
-        const ctx = canvas.getContext('2d');
-        const viewport = page.getViewport({ scale: 1.5 });
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
-        const renderContext = {
-          canvasContext: ctx,
-          viewport: viewport
-        };
-        page.render(renderContext);
-      });
-    }
 
     function renderPages() {
       if (!pdfDoc) return;
-      renderPage(currentPage, leftCanvas);
-      if (currentPage + 1 <= totalPages) {
-        renderPage(currentPage + 1, rightCanvas);
+      const leftPageNum = currentPage;
+      const rightPageNum = currentPage + 1;
+
+      if (leftPageNum <= totalPages) {
+        pdfDoc.getPage(leftPageNum).then(page => {
+          const viewport = page.getViewport({ scale: 1.5 });
+          leftCanvas.height = viewport.height;
+          leftCanvas.width = viewport.width;
+          page.render({ canvasContext: leftCtx, viewport });
+          applyEffect(leftCanvas);
+        });
+      }
+      if (rightPageNum <= totalPages) {
+        pdfDoc.getPage(rightPageNum).then(page => {
+          const viewport = page.getViewport({ scale: 1.5 });
+          rightCanvas.height = viewport.height;
+          rightCanvas.width = viewport.width;
+          page.render({ canvasContext: rightCtx, viewport });
+          applyEffect(rightCanvas);
+        });
       } else {
-        const ctx = rightCanvas.getContext('2d');
-        ctx.clearRect(0, 0, rightCanvas.width, rightCanvas.height);
+        rightCtx.clearRect(0, 0, rightCanvas.width, rightCanvas.height);
       }
-      if (soundOn) flipSound.play();
+      document.getElementById("pageIndicator").innerText = lang === 'zh'
+        ? `第 ${currentPage}-${Math.min(currentPage + 1, totalPages)} 頁 / 共 ${totalPages} 頁`
+        : `Page ${currentPage}-${Math.min(currentPage + 1, totalPages)} / ${totalPages}`;
     }
 
-    function prevPage() {
-      if (currentPage > 2) {
-        currentPage -= 2;
+    function changePage(offset) {
+      if (!pdfDoc) return;
+      const newPage = currentPage + offset;
+      if (newPage >= 1 && newPage <= totalPages) {
+        currentPage = newPage;
         renderPages();
-      }
-    }
-
-    function nextPage() {
-      if (currentPage + 2 <= totalPages) {
-        currentPage += 2;
-        renderPages();
+        playFlipSound();
       }
     }
 
-    function goToPage(num) {
-      if (num >= 1 && num <= totalPages) {
-        currentPage = num % 2 === 0 ? num - 1 : num;
-        renderPages();
-      }
+    function goToPage(page) {
+      if (!pdfDoc || page < 1 || page > totalPages) return;
+      currentPage = page;
+      renderPages();
+      playFlipSound();
+    }
+
+    function goToEnd() {
+      if (!pdfDoc) return;
+      currentPage = totalPages % 2 === 0 ? totalPages - 1 : totalPages;
+      renderPages();
     }
 
     function toggleFullscreen() {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen();
-      } else {
-        document.exitFullscreen();
-      }
-    }
-
-    function toggleSound() {
-      soundOn = !soundOn;
-      alert("音效已" + (soundOn ? "開啟" : "關閉"));
-    }
-
-    function toggleEffect() {
-      effectOn = !effectOn;
-      alert("特效已" + (effectOn ? "開啟" : "關閉"));
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+      else document.exitFullscreen();
     }
 
     function toggleAutoFlip() {
-      if (autoFlipInterval) {
-        clearInterval(autoFlipInterval);
-        autoFlipInterval = null;
-      } else {
-        const sec = parseInt(document.getElementById('autoFlipSec').value, 10);
+      autoFlip = !autoFlip;
+      document.getElementById("btn-auto").innerText = autoFlip ? (lang === 'zh' ? "停止翻頁" : "Stop") : (lang === 'zh' ? "自動翻頁" : "Auto Flip");
+      if (autoFlip) {
+        const interval = parseInt(document.getElementById("autoFlipSec").value) * 1000;
         autoFlipInterval = setInterval(() => {
-          if (currentPage + 2 <= totalPages) {
-            currentPage += 2;
-            renderPages();
-          } else {
-            clearInterval(autoFlipInterval);
-          }
-        }, sec * 1000);
+          if (currentPage + 2 <= totalPages) changePage(2);
+          else toggleAutoFlip();
+        }, interval);
+      } else clearInterval(autoFlipInterval);
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      document.getElementById("btn-sound").innerText = soundEnabled ? (lang === 'zh' ? "音效開" : "Sound On") : (lang === 'zh' ? "音效關" : "Sound Off");
+    }
+
+    function toggleEffect() {
+      effectEnabled = !effectEnabled;
+      document.getElementById("btn-effect").innerText = effectEnabled ? (lang === 'zh' ? "特效開" : "Effect On") : (lang === 'zh' ? "特效關" : "Effect Off");
+    }
+
+    function switchLang(language) {
+      lang = language;
+      // 更新 UI 文案... (略)
+      renderPages();
+    }
+
+    function playFlipSound() {
+      if (soundEnabled) {
+        flipSound.currentTime = 0;
+        flipSound.play();
       }
     }
+
+    function applyEffect(canvas) {
+      if (!effectEnabled) return;
+      canvas.style.transform = "rotateY(15deg)";
+      setTimeout(() => canvas.style.transform = "rotateY(0deg)", 150);
+    }
+
+    function addBookmark() {
+      if (!pdfDoc) return;
+      const list = document.getElementById("bookmark-list");
+      const btn = document.createElement("button");
+      btn.innerText = lang === 'zh' ? `第 ${currentPage} 頁` : `Page ${currentPage}`;
+      btn.onclick = () => goToPage(currentPage);
+      list.appendChild(btn);
+    }
+
+    function loadOutline() {
+      pdfDoc.getOutline().then(outline => {
+        const container = document.getElementById("pdf-outline");
+        container.innerHTML = "";
+        if (!outline) return;
+        outline.forEach(item => {
+          const btn = document.createElement("button");
+          btn.innerText = item.title;
+          btn.onclick = () => {
+            pdfDoc.getPageIndex(item.dest[0]).then(index => {
+              goToPage(index + 1);
+            });
+          };
+          container.appendChild(btn);
+        });
+      });
+    }
+
+    // 滑鼠滾輪翻頁
+    document.getElementById("viewer").addEventListener("wheel", (e) => {
+      e.preventDefault();
+      if (!pdfDoc) return;
+      e.deltaY > 0 ? changePage(2) : changePage(-2);
+    }, { passive: false });
+
+    // 觸控滑動翻頁
+    let touchStartX = 0;
+    const viewer = document.getElementById("viewer");
+    viewer.addEventListener("touchstart", (e) => {
+      touchStartX = e.touches[0].clientX;
+    });
+    viewer.addEventListener("touchend", (e) => {
+      const deltaX = e.changedTouches[0].clientX - touchStartX;
+      if (Math.abs(deltaX) > 50) {
+        deltaX > 0 ? changePage(-2) : changePage(2);
+      }
+    });
   </script>
 </body>
 </html>
