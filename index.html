@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>線上翻頁 PDF 閱覽器</title>
-  <link href="https://cdn.jsdelivr.net/npm/lucide-static@0.308.0/font/lucide.css" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
   <style>
     body {
       margin: 0;
@@ -27,6 +27,7 @@
     canvas {
       width: 48%;
       height: auto;
+      transition: transform 0.3s ease;
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       border-radius: 8px;
       background: #fff;
@@ -37,34 +38,74 @@
       justify-content: center;
       gap: 6px;
       padding: 4px;
-      background: #fff;
+      background: #ffffff;
       border-top: 1px solid #ccc;
-      font-size: 12px;
+      position: sticky;
+      bottom: 0;
+      z-index: 100;
     }
     button, select, input[type="number"] {
       padding: 4px;
       font-size: 12px;
       border-radius: 6px;
       border: 1px solid #ccc;
-      background: #fff;
+      background-color: #ffffff;
       box-shadow: 0 1px 2px rgba(0,0,0,0.08);
     }
-    button i {
-      font-size: 16px;
+    input[type="file"] {
+      display: none;
     }
-    input[type="file"] { display: none; }
-    label[for="fileInput"] i { cursor: pointer; }
-    #bookmark-list { display: none; }
     #pageIndicator {
       font-size: 12px;
       text-align: center;
       width: 100%;
     }
     @media (max-width: 768px) {
-      canvas { width: 95% !important; }
+      #controls {
+        flex-direction: row;
+        flex-wrap: wrap;
+      }
+      canvas {
+        width: 95% !important;
+      }
     }
   </style>
 </head>
+<body>
+  <div id="viewer">
+    <canvas id="left-page"></canvas>
+    <canvas id="right-page"></canvas>
+  </div>
+  <div id="controls">
+    <label for="fileInput"><span data-lucide="upload"></span></label>
+    <input type="file" id="fileInput" accept="application/pdf" />
+    <button onclick="goToPage(1)"><span data-lucide="chevrons-left"></span></button>
+    <button onclick="changePage(-2)"><span data-lucide="chevron-left"></span></button>
+    <button onclick="changePage(2)"><span data-lucide="chevron-right"></span></button>
+    <button onclick="goToEnd()"><span data-lucide="chevrons-right"></span></button>
+    <button onclick="toggleFullscreen()"><span data-lucide="maximize"></span></button>
+    <button onclick="toggleAutoFlip()"><span data-lucide="play"></span></button>
+    <input type="number" id="autoFlipSec" min="1" value="5" title="翻頁秒數" style="width: 40px;" />
+    <button onclick="toggleSound()" id="btn-sound"><span data-lucide="volume-2"></span></button>
+    <button onclick="toggleEffect()" id="btn-effect"><span data-lucide="stars"></span></button>
+    <select onchange="switchLang(this.value)">
+      <option value="zh">繁</option>
+      <option value="en">EN</option>
+    </select>
+    <span id="pageIndicator"></span>
+  </div>
+  <audio id="flip-audio" preload="auto" src="flip.mp3"></audio>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <script>
+    // 初始化 Lucide 圖示
+    lucide.createIcons();
+  </script>
+  <script>
+    // TODO: 放入原 JS 功能
+  </script>
+</body>
+</html>
+
 <body>
   <div id="viewer">
     <canvas id="left-page"></canvas>
