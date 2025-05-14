@@ -72,37 +72,7 @@
   </style>
 </head>
 <body>
-  <div id="viewer">
-    <canvas id="left-page"></canvas>
-    <canvas id="right-page"></canvas>
-  </div>
-  <div id="controls">
-    <label for="fileInput"><span data-lucide="upload"></span></label>
-    <input type="file" id="fileInput" accept="application/pdf" />
-    <button onclick="goToPage(1)"><span data-lucide="chevrons-left"></span></button>
-    <button onclick="changePage(-2)"><span data-lucide="chevron-left"></span></button>
-    <button onclick="changePage(2)"><span data-lucide="chevron-right"></span></button>
-    <button onclick="goToEnd()"><span data-lucide="chevrons-right"></span></button>
-    <button onclick="toggleFullscreen()"><span data-lucide="maximize"></span></button>
-    <button onclick="toggleAutoFlip()"><span data-lucide="play"></span></button>
-    <input type="number" id="autoFlipSec" min="1" value="5" title="翻頁秒數" style="width: 40px;" />
-    <button onclick="toggleSound()" id="btn-sound"><span data-lucide="volume-2"></span></button>
-    <button onclick="toggleEffect()" id="btn-effect"><span data-lucide="stars"></span></button>
-    <select onchange="switchLang(this.value)">
-      <option value="zh">繁</option>
-      <option value="en">EN</option>
-    </select>
-    <span id="pageIndicator"></span>
-  </div>
   <audio id="flip-audio" preload="auto" src="flip.mp3"></audio>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-  <script>
-    // 初始化 Lucide 圖示
-    lucide.createIcons();
-  </script>
-  <script>
-    // TODO: 放入原 JS 功能
-  </script>
 </body>
 </html>
 
